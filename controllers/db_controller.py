@@ -103,3 +103,84 @@ class DBController:
                 print(f"Error during account creation: {e}")
                 self.connection.rollback()
                 return None
+
+    def get_teachers(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT Id_user, Name, Surname FROM Teacher")
+            return cursor.fetchall()
+
+    def get_specializations(self):
+        with self.connection.cursor() as cursor:
+            cursor.execute("SELECT Id_specialization, Specialization_name FROM Specializations")
+            return cursor.fetchall()
+
+    def add_specialization(self, specialization_name):
+        with self.connection.cursor() as cursor:
+            cursor.execute("INSERT INTO Specializations (Specialization_name) VALUES (%s)", (specialization_name,))
+            self.connection.commit()
+
+    def get_teacher_specializations(self, teacher_id):
+        with self.connection.cursor() as cursor:
+            query = """
+            SELECT s.Id_specialization, s.Specialization_name
+            FROM TeacherSpecializations ts
+            JOIN Specializations s ON ts.Id_specialization = s.Id_specialization
+            WHERE ts.Id_teacher = %s
+            """
+            cursor.execute(query, (teacher_id,))
+            return cursor.fetchall()
+
+    def add_teacher_specialization(self, teacher_id, specialization_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute("INSERT INTO TeacherSpecializations (Id_teacher, Id_specialization) VALUES (%s, %s)",
+                           (teacher_id, specialization_id))
+            self.connection.commit()
+
+    def remove_teacher_specialization(self, teacher_id, specialization_id):
+        with self.connection.cursor() as cursor:
+            cursor.execute("DELETE FROM TeacherSpecializations WHERE Id_teacher = %s AND Id_specialization = %s",
+                           (teacher_id, specialization_id))
+            self.connection.commit()
+
+    def get_specialization_id_by_name(self, specialization_name):
+        try:
+            with self.connection.cursor() as cursor:
+                cursor.execute("SELECT Id_specialization FROM Specializations WHERE Specialization_name = %s",
+                               (specialization_name,))
+                result = cursor.fetchone()
+                return result[0] if result else None
+        except Exception as e:
+            print(f"Error during DB query: {e}")
+            return None
+
+    def get_group_teachers(self, group_id):
+        with self.connection.cursor() as cursor:
+            query = """
+            SELECT s.Specialization_name, CONCAT(t.Name, ' ', t.Surname)
+            FROM Groups_Specialization_teacher gst
+            JOIN Specializations s ON gst.Specialization_id = s.Id_specialization
+            JOIN Teacher t ON gst.Teacher_id = t.Id_user
+            WHERE gst.Group_id = %s
+            """
+            cursor.execute(query, (group_id,))
+            return cursor.fetchall()
+
+    def get_teachers_by_specialization(self, specialization_id):
+        with self.connection.cursor() as cursor:
+            query = """
+            SELECT t.Id_user, t.Name, t.Surname
+            FROM TeacherSpecializations ts
+            JOIN Teacher t ON ts.Id_teacher = t.Id_user
+            WHERE ts.Id_specialization = %s
+            """
+            cursor.execute(query, (specialization_id,))
+            return cursor.fetchall()
+
+    def assign_teacher_to_group(self, group_id, specialization_id, teacher_id):
+        with self.connection.cursor() as cursor:
+            query = """
+            INSERT INTO Groups_Specialization_teacher (Group_id, Specialization_id, Teacher_id)
+            VALUES (%s, %s, %s)
+            """
+            cursor.execute(query, (group_id, specialization_id, teacher_id))
+            self.connection.commit()
