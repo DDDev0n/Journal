@@ -7,7 +7,7 @@ class AuthController:
     def login(self, login, password):
         with self.db.connection.cursor() as cursor:
             query = """
-            SELECT u.Id_user, r.Name AS role
+            SELECT u.Id_user, r.Name, u.Activated, u.Pas AS role
             FROM Users u
             JOIN Roles r ON u.Id_role = r.Id_role
             WHERE BINARY u.Login = %s AND BINARY u.Pas = %s
@@ -15,7 +15,7 @@ class AuthController:
             cursor.execute(query, (login, password))
             user = cursor.fetchone()
             if user:
-                return user[1]  # Assuming the role is the second column
+                return user
             else:
                 return None
 
@@ -25,8 +25,26 @@ class AuthController:
             result = cursor.fetchone()
             if result:
                 user_id = result[0]
-                cursor.execute("UPDATE Users SET Pas = %s, CreateCode = NULL WHERE Id_user = %s", (new_password, user_id))
+                cursor.execute("UPDATE Users SET Pas = %s, Activated = True WHERE Id_user = %s", (new_password, user_id))
                 self.db.connection.commit()
                 return True
             else:
                 return False
+
+    def get_student_info(self, login):
+        with self.db.connection.cursor() as cursor:
+            query = "SELECT Id_student, Id_group FROM Student WHERE Id_user = (SELECT Id_user FROM Users WHERE Login = %s)"
+            cursor.execute(query, (login,))
+            return cursor.fetchone()
+
+    def get_teacher_info(self, login):
+        try:
+            with self.db.connection.cursor() as cursor:
+                query = """SELECT Id_user FROM Users WHERE Login = %s
+                """
+                cursor.execute(query, (login,))
+                teacher_info = cursor.fetchone()
+                return teacher_info
+        except Exception as e:
+            print(f"Error retrieving teacher information: {e}")
+            return None
